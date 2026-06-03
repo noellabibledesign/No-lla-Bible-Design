@@ -231,6 +231,17 @@ export default function NeonBlobsCanvas({
     isActive: false,
   });
 
+  // Touch trajectory and holding state tracker
+  const isHoldingTouchRef = useRef<boolean>(false);
+  const growingBubbleIdRef = useRef<number | null>(null);
+  const touchXRef = useRef<number>(0);
+  const touchYRef = useRef<number>(0);
+  const touchRef = useRef({
+    prevX: 0,
+    prevY: 0,
+    lastSpawnTime: 0,
+  });
+
   // Track resizing so that we resize the offscreen text canvas instantly
   useEffect(() => {
     const textCanvas = document.createElement('canvas');
@@ -252,6 +263,9 @@ export default function NeonBlobsCanvas({
   // Set up mouse events to trace trail bubbles
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      const isMobileOrTablet = window.innerWidth < 1024;
+      if (isMobileOrTablet) return; // Prevent mouse trailing logic on mobile/tablet
+
       const m = mouseRef.current;
       m.prevX = m.x;
       m.prevY = m.y;
@@ -299,6 +313,122 @@ export default function NeonBlobsCanvas({
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isExploded]);
+
+  // Set up mobile and tablet touch events (hold to grow a bubble, drag for trails)
+  useEffect(() => {
+    const isMobileOrTablet = window.innerWidth < 1024;
+    if (!isMobileOrTablet) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (isExploded) return;
+      if (e.touches.length === 0) return;
+
+      const target = e.target as HTMLElement;
+      // If tapping on the central branding title container or footer links, let standard click trigger the explosion/redirect/link
+      if (target?.closest('#typography-hotspot-container') || target?.closest('a')) {
+        return;
+      }
+
+      const touch = e.touches[0];
+      const x = touch.clientX;
+      const y = touch.clientY;
+
+      isHoldingTouchRef.current = true;
+      touchXRef.current = x;
+      touchYRef.current = y;
+      
+      touchRef.current.prevX = x;
+      touchRef.current.prevY = y;
+
+      // Create a brand new growing bubble at point of touch
+      const newBubbleId = bubbleIdCounterRef.current++;
+      bubblesRef.current.push({
+        id: newBubbleId,
+        x,
+        y,
+        radius: 4.0,
+        targetRadius: 4.0, // starts tiny and grows continuously while holding
+        vx: 0,
+        vy: 0,
+        life: 0,
+        growthSpeed: 0.1,
+        hueOffset: Math.random(),
+      });
+      growingBubbleIdRef.current = newBubbleId;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isExploded) return;
+      if (e.touches.length === 0) return;
+
+      const touch = e.touches[0];
+      const x = touch.clientX;
+      const y = touch.clientY;
+
+      if (isHoldingTouchRef.current) {
+        touchXRef.current = x;
+        touchYRef.current = y;
+      }
+
+      const prevX = touchRef.current.prevX;
+      const prevY = touchRef.current.prevY;
+      const dx = x - prevX;
+      const dy = y - prevY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const now = Date.now();
+
+      // Only emanate bubbles directly from the point of contact in response to user motion
+      if (dist > 4 && now - touchRef.current.lastSpawnTime > 40) {
+        const headingAngle = Math.atan2(dy, dx);
+        const scatterSpeed = 0.3 + Math.random() * 0.8;
+        const scatterAngle = headingAngle + Math.PI + (Math.random() - 0.5) * 1.2;
+        const baseRadius = 25 + Math.random() * 32;
+
+        bubblesRef.current.push({
+          id: bubbleIdCounterRef.current++,
+          x,
+          y,
+          radius: 3.0,
+          targetRadius: baseRadius,
+          vx: Math.cos(scatterAngle) * scatterSpeed + (Math.random() - 0.5) * 0.2,
+          vy: Math.sin(scatterAngle) * scatterSpeed - (0.15 + Math.random() * 0.45),
+          life: 0,
+          growthSpeed: 0.12 + Math.random() * 0.12,
+          hueOffset: Math.random(),
+        });
+
+        touchRef.current.lastSpawnTime = now;
+        touchRef.current.prevX = x;
+        touchRef.current.prevY = y;
+      }
+    };
+
+    const handleTouchEndOrCancel = () => {
+      if (isHoldingTouchRef.current && growingBubbleIdRef.current !== null) {
+        const activeBubbles = bubblesRef.current;
+        const currentBubble = activeBubbles.find(b => b.id === growingBubbleIdRef.current);
+        if (currentBubble) {
+          // Release bubble with a soft float away physics nudge
+          currentBubble.vy = -(0.5 + Math.random() * 1.5);
+          currentBubble.vx = (Math.random() - 0.5) * 1.0;
+        }
+      }
+      isHoldingTouchRef.current = false;
+      growingBubbleIdRef.current = null;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEndOrCancel, { passive: true });
+    window.addEventListener('touchcancel', handleTouchEndOrCancel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEndOrCancel);
+      window.removeEventListener('touchcancel', handleTouchEndOrCancel);
+    };
   }, [isExploded]);
 
   // Explosive text evaporation burst handler
@@ -411,15 +541,84 @@ export default function NeonBlobsCanvas({
 
       // --- Part B: Bubble Physics calculations (Damping, Friction, Walls bouncing & Clustering) ---
       const activeBubbles = bubblesRef.current;
+
+      // Handle growing touch-hold bubble on mobile/tablet view
+      if (isHoldingTouchRef.current && growingBubbleIdRef.current !== null) {
+        const currentBubble = activeBubbles.find(b => b.id === growingBubbleIdRef.current);
+        if (currentBubble) {
+          // Lock speed and coordinates exactly under point of contact
+          currentBubble.vx = 0;
+          currentBubble.vy = 0;
+          currentBubble.x = touchXRef.current;
+          currentBubble.y = touchYRef.current;
+
+          // Reach full screen width (window.innerWidth) in 3.0 seconds
+          const screenWidth = window.innerWidth;
+          const maxRadius = screenWidth / 2;
+          const radiusGrowth = (maxRadius / 3.0) * deltaSec;
+
+          currentBubble.targetRadius += radiusGrowth;
+          currentBubble.radius = currentBubble.targetRadius;
+
+          // Once it reaches full screen width, POP it!
+          if (currentBubble.radius >= maxRadius) {
+            const popX = currentBubble.x;
+            const popY = currentBubble.y;
+
+            // Remove popped bubble
+            const idx = activeBubbles.findIndex(b => b.id === currentBubble.id);
+            if (idx !== -1) {
+              activeBubbles.splice(idx, 1);
+            }
+
+            // Spawn immediate organic pop fragments
+            for (let k = 0; k < 12; k++) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 2 + Math.random() * 6;
+              activeBubbles.push({
+                id: bubbleIdCounterRef.current++,
+                x: popX,
+                y: popY,
+                radius: 3.0,
+                targetRadius: 8 + Math.random() * 15,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1,
+                life: 0,
+                growthSpeed: 0.1,
+                hueOffset: Math.random(),
+              });
+            }
+
+            // Immediately start a brand new bubble at the exact same location
+            const newBubbleId = bubbleIdCounterRef.current++;
+            activeBubbles.push({
+              id: newBubbleId,
+              x: popX,
+              y: popY,
+              radius: 4.0,
+              targetRadius: 4.0,
+              vx: 0,
+              vy: 0,
+              life: 0,
+              growthSpeed: 0.1,
+              hueOffset: Math.random(),
+            });
+            growingBubbleIdRef.current = newBubbleId;
+          }
+        }
+      }
       
       // Perform O(N^2) pairwise cohesive clustering and soft repulsion
       for (let i = 0; i < activeBubbles.length; i++) {
         const b1 = activeBubbles[i];
+        const isGrowing = b1.id === growingBubbleIdRef.current;
         
-        // Gentle organic wind / float fluctuation
-        b1.life += deltaSec;
-        b1.vy += Math.sin(b1.life * 1.3 + b1.id) * 0.01 - 0.008; // Sluggish hover buoyancy
-        b1.vx += Math.cos(b1.life * 0.8 + b1.id) * 0.006; // Calm sideways breeze
+        if (!isGrowing) {
+          // Gentle organic wind / float fluctuation
+          b1.life += deltaSec;
+          b1.vy += Math.sin(b1.life * 1.3 + b1.id) * 0.01 - 0.008; // Sluggish hover buoyancy
+          b1.vx += Math.cos(b1.life * 0.8 + b1.id) * 0.006; // Calm sideways breeze
+        }
 
         // Inter-bubble collisions & organic attraction
         for (let j = i + 1; j < activeBubbles.length; j++) {
@@ -432,29 +631,39 @@ export default function NeonBlobsCanvas({
           if (distanceVal < minSeparation) {
             // Calculate overlap and push apart slightly (soft collision elasticity)
             const overlap = minSeparation - distanceVal;
-            const overlapRatio = overlap / minSeparation;
-            
-            // Push vector
             const normX = dx / (distanceVal || 1);
             const normY = dy / (distanceVal || 1);
 
-            // Apply soft repulsive tension to clustering groups
+            // Apply soft repulsive tension to clustering groups (growing bubble is locked, so only push non-growing others)
             const complianceForce = isExploded ? 0.35 : 0.08;
-            b1.vx -= normX * overlap * complianceForce;
-            b1.vy -= normY * overlap * complianceForce;
-            b2.vx += normX * overlap * complianceForce;
-            b2.vy += normY * overlap * complianceForce;
+            if (b1.id !== growingBubbleIdRef.current) {
+              b1.vx -= normX * overlap * complianceForce;
+              b1.vy -= normY * overlap * complianceForce;
+            }
+            if (b2.id !== growingBubbleIdRef.current) {
+              b2.vx += normX * overlap * complianceForce;
+              b2.vy += normY * overlap * complianceForce;
+            }
 
             // Surface tension cohesion - make them slide/nest alongside each other
             const slideForce = 0.02;
-            b1.vx += normY * slideForce;
-            b1.vy -= normX * slideForce;
+            if (b1.id !== growingBubbleIdRef.current) {
+              b1.vx += normY * slideForce;
+              b1.vy -= normX * slideForce;
+            }
           }
         }
 
         // Apply physical integration
-        b1.x += b1.vx;
-        b1.y += b1.vy;
+        if (!isGrowing) {
+          b1.x += b1.vx;
+          b1.y += b1.vy;
+        } else {
+          b1.x = touchXRef.current;
+          b1.y = touchYRef.current;
+          b1.vx = 0;
+          b1.vy = 0;
+        }
 
         // Apply visual scale growth interpolation
         if (b1.radius < b1.targetRadius) {
@@ -462,29 +671,33 @@ export default function NeonBlobsCanvas({
         }
 
         // Apply high fluid air drag
-        b1.vx *= isExploded ? 0.94 : 0.975;
-        b1.vy *= isExploded ? 0.94 : 0.975;
+        if (!isGrowing) {
+          b1.vx *= isExploded ? 0.94 : 0.975;
+          b1.vy *= isExploded ? 0.94 : 0.975;
+        }
 
         // Viewport boundaries bounce with energy loss (prevents leaking out of landscape)
         const bounceFriction = 0.72;
-        if (b1.x - b1.radius < 0) {
-          b1.x = b1.radius;
-          b1.vx = -b1.vx * bounceFriction;
-        } else if (b1.x + b1.radius > w) {
-          b1.x = w - b1.radius;
-          b1.vx = -b1.vx * bounceFriction;
-        }
-
-        if (b1.y - b1.radius < -100) {
-          // Remove if floated too far out above the viewport, but keep if not exploded
-          if (b1.isExplosion) {
-            activeBubbles.splice(i, 1);
-            i--;
-            continue;
+        if (!isGrowing) {
+          if (b1.x - b1.radius < 0) {
+            b1.x = b1.radius;
+            b1.vx = -b1.vx * bounceFriction;
+          } else if (b1.x + b1.radius > w) {
+            b1.x = w - b1.radius;
+            b1.vx = -b1.vx * bounceFriction;
           }
-        } else if (b1.y + b1.radius > h + 100) {
-          // Keep floating inside screen
-          if (b1.vy > 0) b1.vy = -b1.vy * bounceFriction;
+
+          if (b1.y - b1.radius < -100) {
+            // Remove if floated too far out above the viewport, but keep if not exploded
+            if (b1.isExplosion) {
+              activeBubbles.splice(i, 1);
+              i--;
+              continue;
+            }
+          } else if (b1.y + b1.radius > h + 100) {
+            // Keep floating inside screen
+            if (b1.vy > 0) b1.vy = -b1.vy * bounceFriction;
+          }
         }
       }
 
