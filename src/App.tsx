@@ -117,7 +117,7 @@ export default function App() {
         style={{ opacity: isExploded ? 0 : 1, transition: 'opacity 0.4s ease-out' }}
       >
         {/* Invisible to avoid double-text rendering on screen, but accessible in DOM */}
-        <div className="sr-only" style={{ opacity: 0, pointerEvents: 'none', position: 'absolute' }}>San Francisco, CA</div>
+        <div className="sr-only">San Francisco, CA</div>
       </div>
 
       {/* 2. CENTRAL BRANDING CLICK ACTION AREA */}
@@ -150,7 +150,6 @@ export default function App() {
               <div 
                 className="py-12 px-20 select-none cursor-pointer"
                 style={{
-                  opacity: 0, // Fully invisible in DOM to prevent text duplication on mobile/safari viewports
                   // Soft dark card glow tracing mouse movement
                   background: headlineHovered 
                     ? 'radial-gradient(circle, rgba(127, 255, 0, 0.05) 0%, rgba(0,0,0,0) 70%)'
