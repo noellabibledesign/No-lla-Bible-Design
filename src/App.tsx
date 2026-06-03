@@ -61,8 +61,8 @@ export default function App() {
   }, []);
 
   const handleExplosionComplete = () => {
-    // Seamless browser redirect to Noëlla Bible's main domain
-    window.location.href = 'https://noellabible.com';
+    // Seamless browser redirect to Noëlla Bible's main Adobe Portfolio domain
+    window.location.href = 'https://noellabible.myportfolio.com/';
   };
 
   return (
