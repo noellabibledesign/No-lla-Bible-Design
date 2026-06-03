@@ -179,7 +179,10 @@ const fragmentShader = `
     compositedBg *= bgVign;
 
     // Fetch the offscreen typed layout using distorted text UV coords to make real lens warping!
-    vec4 typographySample = texture2D(uTextTexture, distortedUv);
+    vec4 typographySample = vec4(0.0);
+    if (distortedUv.x >= 0.0 && distortedUv.x <= 1.0 && distortedUv.y >= 0.0 && distortedUv.y <= 1.0) {
+      typographySample = texture2D(uTextTexture, distortedUv);
+    }
     
     // Core composite blend
     vec3 compositeColor = mix(compositedBg, vec3(1.0), typographySample.a * typographySample.rgb);
@@ -338,8 +341,8 @@ export default function NeonBlobsCanvas({
     const container = mountRef.current;
     if (!container) return;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -354,6 +357,8 @@ export default function NeonBlobsCanvas({
     const textTexture = new THREE.CanvasTexture(textCanvas);
     textTexture.minFilter = THREE.LinearFilter;
     textTexture.magFilter = THREE.LinearFilter;
+    textTexture.wrapS = THREE.ClampToEdgeWrapping;
+    textTexture.wrapT = THREE.ClampToEdgeWrapping;
 
     // Full screen clip quad
     const geometry = new THREE.PlaneGeometry(2, 2);
@@ -595,8 +600,8 @@ function drawOffscreenTypography(canvas: HTMLCanvasElement, textAlpha: number) {
 
   ctx.globalAlpha = textAlpha;
 
-  // Compute responsive dimensions in scale
-  const scale = Math.min(w / 1440, 1.25);
+  // Compute responsive dimensions in scale (prevent over-compressing text on mobile screens)
+  const scale = w < 768 ? Math.max(0.65, w / 768) : Math.min(w / 1440, 1.25);
 
   // 1. Minor Typography - TOP: "SAN FRANCISCO I CALIFORNIA" or "San Francisco, CA"
   // Request spec: "In small white Proxima Nova font, placed at the very top center of the page, display 'San Francisco, CA'"
