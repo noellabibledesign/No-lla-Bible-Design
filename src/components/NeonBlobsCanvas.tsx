@@ -824,23 +824,38 @@ function drawOffscreenTypography(canvas: HTMLCanvasElement, textAlpha: number) {
   // 2. Main Title - CENTER: "NOËLLA BIBLE" (white, Bebas Kai/Bebas Neue)
   // Request spec: "Centered on the screen, large text must display 'NOËLLA BIBLE' in a white Bebas Kai font... strong capitalization"
   ctx.fillStyle = '#ffffff';
-  const mainFontSize = Math.round(91 * scale);
+  let mainFontSize = Math.round(91 * scale);
+  if (w < 640) {
+    mainFontSize = 47; // Matches text-[2.95rem]
+  } else if (w < 768) {
+    mainFontSize = 57; // Matches sm:text-[3.54rem]
+  } else if (w < 1024) {
+    mainFontSize = 82; // Matches md:text-[5.12rem]
+  } else {
+    mainFontSize = Math.round(98 * scale); // Matches lg:text-[6.14rem]
+  }
   ctx.font = `700 ${mainFontSize}px "Bebas Neue", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   const mainText = "NOËLLA BIBLE";
-  const centerY = h / 2 - 25 * scale;
+  const centerY = h / 2;
   ctx.fillText(mainText, w / 2, centerY);
 
   // 3. Subheading - Directly below: "Creative Direction" in expanded letters and Chartreuse color
   // Request spec: "Directly below the main title, the text 'Creative Direction' must be rendered in expanded (increased letter-spacing) Proxima Nova font, colored chartreuse (#DEF50C)."
   ctx.fillStyle = '#DEF50C';
-  ctx.font = `600 ${Math.max(12, Math.round(15 * scale))}px "Montserrat", "Inter", sans-serif`;
+  let subFontSize = Math.max(12, Math.round(15 * scale));
+  if (w < 768) {
+    subFontSize = 11; // Matches text-[11px]
+  } else {
+    subFontSize = 14; // Matches md:text-sm (14px)
+  }
+  ctx.font = `600 ${subFontSize}px "Montserrat", "Inter", sans-serif`;
   const subText = "CREATIVE DIRECTION";
   // Anchor to bottom boundary of the title
-  const subY = centerY + mainFontSize * 0.52 + 10 * scale;
-  drawCustomLetterSpacedText(ctx, subText, w / 2, subY, 12 * scale, true);
+  const subY = centerY + mainFontSize * 0.55 + (w < 768 ? 6 : 14);
+  drawCustomLetterSpacedText(ctx, subText, w / 2, subY, w < 768 ? 6 * scale : 12 * scale, true);
 }
 
 /**

@@ -70,7 +70,7 @@ export default function App() {
       id="main-viewport-frame"
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="relative w-full h-full bg-[#000000] overflow-hidden select-none flex flex-col justify-between items-center cursor-default text-white"
+      className="relative w-full h-full bg-[#000000] overflow-hidden select-none flex flex-col justify-center items-center cursor-default text-white"
       style={{
         ['--glow-offset-x' as any]: '0px',
         ['--glow-offset-y' as any]: '0px',
@@ -113,7 +113,7 @@ export default function App() {
 
       {/* 1. TOP BAR OVERLAY */}
       <div 
-        className="w-full pt-8 md:pt-12 text-center z-30 pointer-events-none"
+        className="absolute top-0 left-0 right-0 w-full pt-8 md:pt-12 text-center z-30 pointer-events-none"
         style={{ opacity: isExploded ? 0 : 1, transition: 'opacity 0.4s ease-out' }}
       >
         {/* Invisible to avoid double-text rendering on screen, but accessible in DOM */}
@@ -121,7 +121,7 @@ export default function App() {
       </div>
 
       {/* 2. CENTRAL BRANDING CLICK ACTION AREA */}
-      <div className="relative w-full max-w-4xl px-6 flex items-center justify-center z-30 flex-grow">
+      <div className="relative w-full max-w-4xl px-6 flex items-center justify-center z-30">
         <AnimatePresence>
           {!isExploded && (
             <motion.div
@@ -149,7 +149,7 @@ export default function App() {
                 and updating visual cues dynamically.
               */}
               <div 
-                className="py-12 px-20 select-none cursor-pointer"
+                className="py-6 px-4 md:py-12 md:px-20 select-none cursor-pointer"
                 style={{
                   // Soft dark card glow tracing mouse movement
                   background: headlineHovered 
@@ -164,13 +164,13 @@ export default function App() {
                   matches WebGL text size with pixel-perfect responsive precision.
                 */}
                 <div 
-                  className="font-heading font-bold text-[2.95rem] sm:text-[3.54rem] md:text-[5.12rem] lg:text-[6.14rem] tracking-tight text-transparent leading-none select-none"
+                  className="font-heading font-bold text-[2.95rem] sm:text-[3.54rem] md:text-[5.12rem] lg:text-[6.14rem] tracking-tight text-transparent leading-none select-none whitespace-nowrap"
                 >
                   NOËLLA BIBLE
                 </div>
                 
                 <div 
-                  className="mt-5 text-[11px] md:text-sm text-transparent tracking-[0.62em] font-medium"
+                  className="mt-5 text-[11px] md:text-sm text-transparent tracking-[0.62em] font-medium whitespace-nowrap"
                 >
                   CREATIVE DIRECTION
                 </div>
@@ -182,7 +182,7 @@ export default function App() {
 
       {/* 3. BOTTOM FOOTER OVERLAY */}
       <div 
-        className="w-full pb-8 md:pb-12 text-center z-30 pointer-events-auto"
+        className="absolute bottom-0 left-0 right-0 w-full pb-8 md:pb-12 text-center z-30 pointer-events-auto"
         style={{
           opacity: isExploded ? 0 : 1,
           transition: 'all 0.4s ease-out',
