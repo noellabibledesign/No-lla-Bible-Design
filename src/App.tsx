@@ -141,7 +141,7 @@ export default function App() {
               onMouseLeave={() => setHeadlineHovered(false)}
             >
               {/* Semantic hidden descriptors for screen readers */}
-              <h1 className="sr-only">Noella Bible Creative Direction</h1>
+              <h1 className="sr-only">Noella Bible - Creative Direction</h1>
 
               {/* 
                 An absolute, custom transparent overlay mimicking text proportions exactly.

@@ -263,9 +263,6 @@ export default function NeonBlobsCanvas({
   // Set up mouse events to trace trail bubbles
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      const isMobileOrTablet = window.innerWidth < 1024;
-      if (isMobileOrTablet) return; // Prevent mouse trailing logic on mobile/tablet
-
       const m = mouseRef.current;
       m.prevX = m.x;
       m.prevY = m.y;
@@ -317,8 +314,8 @@ export default function NeonBlobsCanvas({
 
   // Set up mobile and tablet touch events (hold to grow a bubble, drag for trails)
   useEffect(() => {
-    const isMobileOrTablet = window.innerWidth < 1024;
-    if (!isMobileOrTablet) return;
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) return;
 
     const handleTouchStart = (e: TouchEvent) => {
       if (isExploded) return;
@@ -509,6 +506,28 @@ export default function NeonBlobsCanvas({
     // Initial typography render
     drawOffscreenTypography(textCanvas, isExploded ? 0 : 1);
     textTexture.needsUpdate = true;
+
+    // Spawn gorgeous initial ambient/floating bubbles centered on screen area
+    if (bubblesRef.current.length === 0 && !isExploded) {
+      const initialCount = 10;
+      for (let i = 0; i < initialCount; i++) {
+        const x = Math.random() * width;
+        const y = height * 0.2 + Math.random() * (height * 0.6);
+        const baseRadius = 25 + Math.random() * 32;
+        bubblesRef.current.push({
+          id: bubbleIdCounterRef.current++,
+          x,
+          y,
+          radius: 4.0,
+          targetRadius: baseRadius,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: -(0.1 + Math.random() * 0.35),
+          life: Math.random() * 5,
+          growthSpeed: 0.08 + Math.random() * 0.08,
+          hueOffset: Math.random(),
+        });
+      }
+    }
 
     const handleWindowResize = () => {
       const w = window.innerWidth;
